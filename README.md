@@ -1,202 +1,298 @@
 # IPED-Podman: Containerized Digital Forensics Analysis
 
-A Podman-based setup for running IPED (Digital Evidence Processor and Indexer) with GPU acceleration for forensic investigations.
+A Podman/Docker-based setup for running IPED (Integrated Platform for Electronic Evidence Discovery and Analysis) with GPU acceleration for large-scale forensic investigations.
 
 ## Features
 
 - 🔍 **Digital forensics processing** with IPED 4.2.2
 - 🎙️ **Audio transcription** using faster-whisper with CUDA
-- 👤 **Face recognition** with dlib + CUDA
-- 🖼️ **Image similarity detection**
+- 👤 **Face recognition** with dlib compiled for CUDA acceleration
 - 📝 **OCR** in multiple languages
+- 🖼️ **Image thumbnail generation and similarity detection**
 - 🚀 **GPU acceleration** via NVIDIA CUDA 12.4
+- 🛠️ **CLI and headless modes** for automation and batch processing
+- 📊 **Results analysis** with interactive GUI
 
 ## Prerequisites
 
+### System Requirements
+- **CPU**: 8+ cores recommended
+- **RAM**: 32GB+ (more for large datasets)
+- **GPU**: NVIDIA GPU with CUDA support (optional but highly recommended)
+- **Storage**: SSD recommended, especially for temp directory (significant write-heavy workload)
+- **OS**: Linux (Fedora, Ubuntu, Debian, Arch, or other distributions with Podman)
+
 ### Required Software
-- Podman and podman-compose
-- NVIDIA GPU with CUDA support
-- Insane VRAM
-- Insane RAM
-- SSD storage recommended for temp files
-
-### Optional
-- X11 display server for analysis GUI
-
-### Installation
 ```bash
 # Fedora/RHEL
-sudo dnf install podman podman-compose yad
+sudo dnf install podman podman-compose
 
 # Ubuntu/Debian
-sudo apt install podman podman-compose yad
+sudo apt install podman podman-compose
 
-# Install NVIDIA Container Toolkit for Podman
-# Follow: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/
+# Arch
+sudo pacman -S podman podman-compose
 
-# Arch (https://archlinux.org/packages/extra/x86_64/nvidia-container-toolkit/)
-yay -S nvidia-container-toolkit
+# Install NVIDIA Container Toolkit for GPU support
+# https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/
 ```
 
 ## Quick Start
 
-### 1. Build the Image
+### 1. Build the Container Image
+
 ```bash
 ./build.sh
 ```
 
-### 2.
+The build script will:
+- Check for NVIDIA GPU availability
+- Build the `iped-cuda:4.2.2_7` image with GPU support
+- Preload Whisper and dlib models
+
+### 2. Process Evidence
+
 ```bash
-# Process evidence
+# Basic usage
 ./startIped-cli.sh process \
   --evidence /path/to/evidence.E01 \
-  --hashes-db /path/to/hashdb
+  --hashes-db /path/to/hashdb \
+  --output my_case
 
-# Analyze results
-./startIped-cli.sh analyze --case-name CaseName
+# Multiple evidence files
+./startIped-cli.sh process \
+  --evidence /data/phone.E01 \
+  --evidence /data/disk.dd \
+  --hashes-db /db/hashes \
+  --output my_case
+
+# Headless mode (no GUI)
+./startIped-cli.sh process \
+  --evidence /data/phone.E01 \
+  --hashes-db /db/hashes \
+  --output my_case \
+  --nogui
+
+# Custom settings
+./startIped-cli.sh process \
+  --evidence /data/phone.E01 \
+  --hashes-db /db/hashes \
+  --output my_case \
+  --threads 16 \
+  --memory 64G
+
+# Continue interrupted processing
+./startIped-cli.sh process \
+  --evidence /data/phone.E01 \
+  --hashes-db /db/hashes \
+  --output my_case \
+  --continue
 ```
+
+### 3. Analyze Results
+
+```bash
+# Analyze processed case
+./startIped-cli.sh analyze --case-name my_case
+
+# List all available cases
+./startIped-cli.sh list
+```
+
+### 4. Clean Up
+
+```bash
+# Remove containers and temporary files
+./startIped-cli.sh clean
+```
+
+## CLI Reference
+
+### Process Command
+
+```bash
+./startIped-cli.sh process [options]
+```
+
+**Required Options:**
+- `-e, --evidence PATH` - Path to evidence file/directory (can be specified multiple times)
+- `-d, --hashes-db PATH` - Path to hashes database directory
+- `-o, --output NAME` - Output case name
+
+**Optional Options:**
+- `-c, --config PATH` - Custom IPED config directory (default: `./conf`)
+- `-t, --threads NUM` - Number of processing threads (default: half of system threads)
+- `-m, --memory SIZE` - Java heap size (default: 2/3 of physical RAM)
+- `--continue` - Continue interrupted processing
+- `--no-gpu` - Disable GPU acceleration
+- `--nogui` - Run in headless mode (no GUI)
+
+### Analyze Command
+
+```bash
+./startIped-cli.sh analyze --case-name NAME
+```
+
+Opens the IPED analysis GUI for a previously processed case.
+
+### List Command
+
+```bash
+./startIped-cli.sh list
+```
+
+Lists all completed cases in the `results/` directory.
+
+### Clean Command
+
+```bash
+./startIped-cli.sh clean
+```
+
+Stops containers and cleans up temporary files.
 
 ## Configuration
 
 ### Main Configuration Files
 
-1. **`config.txt`** - Quick settings (used by GUI)
-   - Default locale, thread count, examiner name, etc.
+1. **`conf/IPEDConfig.txt`** - IPED processing modules
+   - Enable/disable analysis features (hash lookup, OCR, face recognition, etc.)
+   - Language settings, hash algorithms, etc.
 
-2. **`IPEDConfig.txt`** - IPED processing features
-   - Enable/disable specific analysis modules
-   - Hash algorithms, OCR settings, etc.
+2. **`conf/LocalConfig.txt`** - Environment configuration
+   - Thread count, temp directories, database paths
+   - Java memory settings
 
-3. **`LocalConfig.txt`** - Local environment
-   - Temp directories, thread counts, database paths
+3. **`conf/ParserConfig.xml`** - File parser configuration
+   - Which file types to process
+   - Custom parser rules
+
+4. **Additional configs** - See `conf/` directory for specialized configs:
+   - `OCRConfig.txt` - Optical character recognition settings
+   - `FaceRecognitionConfig.txt` - Face detection parameters
+   - `AudioTranscriptConfig.txt` - Whisper transcription settings
+   - `HashDBLookupConfig.txt` - Hash database configuration
+   - etc.
 
 ### Customization
 
-#### Change Memory Allocation
-Edit `docker-compose.template.yml`:
-```yaml
-command: >
-  java -jar iped.jar -Xms32G -Xmx64G --portable
+#### Memory and Thread Allocation
+
+The script automatically calculates optimal values based on system resources. Override with:
+
+```bash
+./startIped-cli.sh process \
+  --evidence /data/phone.E01 \
+  --hashes-db /db/hashes \
+  --output my_case \
+  --threads 8 \
+  --memory 32G
 ```
 
-#### Change Thread Count
-Edit `LocalConfig.txt`:
-```
-numThreads = 8
-```
+#### Custom Plugins
 
-#### Add Custom IPED Plugins
-Place `.jar` files in `./plugins/` directory.
+Place `.jar` files in the `plugins/` directory before processing.
+
+#### Custom Config Directory
+
+Use a separate configuration directory:
+
+```bash
+./startIped-cli.sh process \
+  --evidence /data/phone.E01 \
+  --hashes-db /db/hashes \
+  --output my_case \
+  --config /path/to/custom/config
+```
 
 ## Project Structure
 
 ```
 IPED-Podman/
+├── build.sh                                # Build script
+├── startIped-cli.sh                        # CLI launcher (process, analyze, list, clean)
 ├── Dockerfile                              # Container image definition
-├── docker-compose.template.yml             # Template for processing
-├── docker-compose.analyze.template.yml     # Template for analysis
-├── docker-compose.yml                      # Generated (gitignored)
-├── startIped.sh                            # GUI launcher
-├── startIped-cli.sh                        # CLI launcher (NEW)
-├── build.sh                                # Build script (NEW)
-├── config.txt                              # Quick config
-├── IPEDConfig.txt                          # IPED features config
-├── LocalConfig.txt                         # Environment config
-├── results/                                # Processing output
-├── ipedtmp/                                # Temporary files
-├── logs/                                   # IPED logs
-└── plugins/                                # Custom plugins
+├── docker-compose.yml                      # Generated at runtime (gitignored)
+├── docker/
+│   ├── docker-compose.template.yml         # Template for processing
+│   ├── docker-compose.analyze.template.yml # Template for analysis
+│   └── docker-compose.nogui.template.yml   # Template for headless mode
+├── conf/                                   # IPED configuration directory
+│   ├── IPEDConfig.txt                      # Main IPED features config
+│   ├── LocalConfig.txt                     # Local environment settings
+│   ├── OCRConfig.txt                       # OCR settings
+│   ├── FaceRecognitionConfig.txt           # Face recognition settings
+│   ├── AudioTranscriptConfig.txt           # Audio transcription settings
+│   └── [many more configs...]              # Specialized configurations
+├── plugins/                                # Custom IPED plugin JAR files
+├── results/                                # Case output (indexed results, reports)
+├── output/                                 # Intermediate processing output
+├── logs/                                   # IPED processing logs
+├── temp/                                   # Temporary files (large!)
+└── [config files]                          # Root-level config overrides
 ```
 
 ## Troubleshooting
 
-### GUI doesn't appear
-```bash
-xhost +local:
-export DISPLAY=:0
-```
+### NVIDIA GPU Not Detected
 
-### Out of memory errors
-- Reduce thread count in `LocalConfig.txt`
-- Reduce Java heap size in `docker-compose.template.yml`
-- Close other applications
-
-### CUDA not working
 ```bash
-# Test NVIDIA runtime
+# Test if NVIDIA runtime works
 podman run --rm --device nvidia.com/gpu=all ubuntu nvidia-smi
-```
 
-### "failed to stat CDI host device /dev/nvidia-uvm" Error
-
-This happens when NVIDIA kernel modules aren't loaded. The script will try to fix this automatically, but if it fails:
-
-**Quick Fix:**
-```bash
+# If "failed to stat CDI host device /dev/nvidia-uvm":
 sudo nvidia-modprobe -u -c=0
 ```
 
-**Permanent Fix (Recommended):**
+### Out of Memory Errors
 
-1. Enable NVIDIA persistence daemon:
-```bash
-sudo systemctl enable nvidia-persistenced
-sudo systemctl start nvidia-persistenced
+1. Reduce thread count:
+   ```bash
+   ./startIped-cli.sh process ... --threads 4
+   ```
+
+2. Reduce heap size:
+   ```bash
+   ./startIped-cli.sh process ... --memory 32G
+   ```
+
+3. Process evidence in smaller batches
+
+4. Close other applications
+
+### Slow Processing
+
+- Verify GPU is being used: Enable `--no-gpu` to compare performance
+- Put everything (evidence, hashdb, temp, output) on the same NVME SSD drive!
+
+## Output Structure
+
+After processing, results are available in `results/<case_name>/`:
+
+```
+results/my_case/
+├── iped/                           # IPED indexed database
+├── DateiListe.csv                  # File listing
+└── reports/                        # Generated reports
 ```
 
-2. Or run the helper script:
+Analyze results with:
 ```bash
-./fix-nvidia-modules.sh
+./startIped-cli.sh analyze --case-name my_case
 ```
-
-3. Or add to `/etc/rc.local`:
-```bash
-#!/bin/bash
-nvidia-modprobe -u -c=0
-exit 0
-```
-
-**Why does this happen?**
-- Rootless Podman needs the NVIDIA device nodes (`/dev/nvidia-uvm`, etc.)
-- These aren't always created at boot, especially on systems that boot without X11
-- The `nvidia-modprobe` command creates these device nodes
-- The `-u` flag makes them accessible to non-root users (needed for rootless Podman)
-
-### Permission denied errors
-```bash
-# Fix SELinux contexts
-sudo chcon -Rt svirt_sandbox_file_t ./results ./ipedtmp ./logs
-```
-
-## Security Notes
-
-⚠️ **X11 Security**: The startup script uses `xhost +` which is insecure. For production:
-```bash
-xhost +local:$(id -un)  # Only allow local user
-```
-
-⚠️ **Privileged Mode**: Container runs in privileged mode for hardware access. Review security implications.
-
-## Performance Tips
-
-1. **Use SSD** for `ipedtmp` directory
-2. **Separate disks** for evidence (read) and results (write)
-3. **GPU processing** significantly speeds up face recognition and transcription
-4. **Hash database on SSD** improves lookup performance
 
 ## License
 
-This setup is provided as-is. IPED itself is open source under GPLv3.
-See: https://github.com/sepinf-inc/IPED
+This project is licensed under GPLv3. See [LICENSE](LICENSE) for details.
 
-## Credits
+IPED and related components:
+- **IPED**: https://github.com/sepinf-inc/IPED (GPLv3)
+- **Base Image**: https://hub.docker.com/r/ipeddocker/iped
+- **Whisper**: https://github.com/openai/whisper (MIT)
+- **dlib**: http://dlib.net (Boost Software License)
 
-- IPED: https://github.com/sepinf-inc/IPED
-- Base Docker image: ipeddocker/iped
-- Whisper: OpenAI
-- dlib: Davis King
+## References
 
-## Support
-
-For IPED-specific questions, see the official documentation:
-- https://github.com/sepinf-inc/IPED/wiki
+- IPED Documentation: https://github.com/sepinf-inc/IPED/wiki
+- IPED GitHub: https://github.com/sepinf-inc/IPED
+- NVIDIA Container Toolkit: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/
