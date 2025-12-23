@@ -49,3 +49,8 @@ RUN pip3 uninstall dlib -y && \
 
 # --- Add IPED plugins ---
 COPY plugins/ /opt/IPED/plugins/
+
+LABEL org.opencontainers.image.authors="AlexInABox"
+LABEL org.opencontainers.image.licenses="AGPL-3.0"
+LABEL org.opencontainers.image.url="https://github.com/AlexInABox/IPED-cuda"
+LABEL org.opencontainers.image.source="https://github.com/AlexInABox/IPED-cuda"

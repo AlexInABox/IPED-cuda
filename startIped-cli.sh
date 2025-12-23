@@ -27,7 +27,7 @@ Process Options:
     -c, --config PATH          Path to custom IPED config directory (default: ./conf)
     -o, --output NAME          Output case name (required)
     -t, --threads NUM          Number of processing threads (default: 1/2 of system threads)
-    -m, --memory SIZE          Java heap size (default: 2/3 of physical RAM)
+    -m, --memory SIZE          Java heap size (default: 1/2 of physical RAM, max 32.5GB (https://github.com/sepinf-inc/IPED/issues/1712#issuecomment-1588163500))
     --continue                 Continue interrupted processing
     --no-gpu                   Disable GPU acceleration
     --nogui                    Run IPED without GUI (headless mode)
@@ -105,7 +105,7 @@ cmd_process() {
     local output_name=""
     
     # Calculate defaults based on system resources
-    local total_mem=$(free -g | grep "^Mem:" | awk '{print int($2 * 2 / 3)}')
+    local total_mem=$(free -m | grep "^Mem:" | awk '{mem=int($2 * 1 / 2); if (mem > 32500) mem=32500; print int(mem/1024)}')
     local memory="${total_mem}G"
     local cpu_count=$(nproc)
     local threads=$((cpu_count / 2))
@@ -278,7 +278,7 @@ cmd_process() {
         "$TEMPLATE" > docker-compose.yml
     
     # Update memory settings
-    sed -i "s|-Xms[0-9]*G -Xmx[0-9]*G|-Xms$((${memory%G} - 5))G -Xmx$memory|g" docker-compose.yml
+    sed -i "s|-Xmx[0-9]*G|-Xmx$memory|g" docker-compose.yml
     
     # Add --continue flag if requested
     if [[ "$continue_flag" == "true" ]]; then
@@ -365,7 +365,7 @@ EOF
     echo -e "\r${GREEN}  Starting now!${NC}"
     echo ""
     
-    podman-compose up
+    podman-compose --podman-run-args="--pids-limit=-1" up
 }
 
 # Command: Analyze results

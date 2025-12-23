@@ -3,8 +3,12 @@ services:
   iped:
     image: iped-cuda:4.2.2_7
     privileged: true
+    ulimits:
+      nproc:
+        soft: -1
+        hard: -1
     command: >
-      java -jar iped.jar -Xms75G -Xmx80G --portable --nogui
+      java -jar iped.jar -Xmx30G --portable --nogui
       __EVIDENCE_PATHS__
       -o "/results/__EVIDENCE_NAME_NOEXT__"
     volumes:

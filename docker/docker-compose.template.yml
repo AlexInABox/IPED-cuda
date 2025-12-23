@@ -3,6 +3,10 @@ services:
   iped:
     image: iped-cuda:4.2.2_7
     privileged: true
+    ulimits:
+      nproc:
+        soft: -1
+        hard: -1
     environment:
       - DISPLAY=${DISPLAY}
       - GDK_BACKEND=${GDK_BACKEND}
@@ -10,7 +14,7 @@ services:
       - SAL_USE_VCLPLUGIN=gen
       - GDK_DPI_SCALE=${GDK_DPI_SCALE}
     command: >
-      java -jar iped.jar -Xms75G -Xmx80G --portable
+      java -jar iped.jar -Xmx30G --portable
       __EVIDENCE_PATHS__
       -o "/results/__EVIDENCE_NAME_NOEXT__"
     volumes:
