@@ -1,0 +1,26 @@
+version: "3.9"
+services:
+  iped-analyze:
+    image: iped-whisper-cuda:4.2.2_7
+    privileged: true
+    command: >
+      java -jar /output/__EVIDENCE_NAME_NOEXT__/iped/lib/iped-search-app.jar
+    environment:
+      - DISPLAY=${DISPLAY}
+      - GDK_BACKEND=${GDK_BACKEND}
+      - GDK_SCALE=${GDK_SCALE}
+      - SAL_USE_VCLPLUGIN=gen
+      - GDK_DPI_SCALE=${GDK_DPI_SCALE}
+    volumes:
+      - "./output:/output:ro"
+      - "__EVIDENCE_DIR__:/evidences:ro"
+      - "./ipedtmp:/mnt/ipedtmp"
+      - "/tmp/.X11-unix/:/tmp/.X11-unix/"
+      - "/etc/localtime:/etc/localtime:ro"
+    devices:
+      - "nvidia.com/gpu=all"
+      - "/dev/dri:/dev/dri"
+      - "/dev/snd:/dev/snd"
+    tty: true
+    stdin_open: true
+    restart: "no"

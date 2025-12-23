@@ -1,0 +1,25 @@
+# Generated files
+docker-compose.yml
+
+# Processing outputs
+results/
+ipedtmp/
+logs/
+
+# Cache files
+.cache/
+*.cache
+
+# User-specific config
+config.txt
+
+# Backup files
+*.bak
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+temp
+output

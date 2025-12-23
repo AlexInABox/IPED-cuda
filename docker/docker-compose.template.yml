@@ -1,0 +1,30 @@
+version: "3.9"
+services:
+  iped:
+    image: iped-whisper-cuda:4.2.2_7
+    privileged: true
+    environment:
+      - DISPLAY=${DISPLAY}
+      - GDK_BACKEND=${GDK_BACKEND}
+      - GDK_SCALE=${GDK_SCALE}
+      - SAL_USE_VCLPLUGIN=gen
+      - GDK_DPI_SCALE=${GDK_DPI_SCALE}
+    command: >
+      java -jar iped.jar -Xms75G -Xmx80G --portable
+      __EVIDENCE_PATHS__
+      -o "/results/__EVIDENCE_NAME_NOEXT__"
+    volumes:
+      - "./results:/results"
+      - "./ipedtmp:/mnt/ipedtmp"
+      __EVIDENCE_PATHS_VOLUMES__
+      - "__HASHES_PATH__:/mnt/hashesdb:ro"
+      - "__CONF_PATH__:/opt/IPED/iped/conf"
+      - "./IPEDConfig.txt:/opt/IPED/iped/IPEDConfig.txt"
+      - "./LocalConfig.txt:/opt/IPED/iped/LocalConfig.txt"
+      - "./logs:/opt/IPED/iped-4.2.2/log"
+      - "/etc/localtime:/etc/localtime:ro"
+      - "/tmp/.X11-unix/:/tmp/.X11-unix/"
+    devices:
+      - "nvidia.com/gpu=all"
+      - "/dev/dri:/dev/dri"
+      - "/dev/snd:/dev/snd"
