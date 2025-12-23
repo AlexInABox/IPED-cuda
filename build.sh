@@ -7,7 +7,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-IMAGE_NAME="iped-whisper-cuda"
+IMAGE_NAME="iped-cuda"
 IMAGE_TAG="4.2.2_7"
 
 echo -e "${GREEN}=== Building IPED Container Image ===${NC}"
