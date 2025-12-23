@@ -23,7 +23,7 @@ Commands:
 
 Process Options:
     -e, --evidence PATH         Path to evidence file/directory (can be used multiple times)
-    -d, --hashes-db PATH       Path to hashes database directory (required)
+    -d, --hashes-db PATH       Path to directory containing hashes database (required - pass the folder, not the database file)
     -c, --config PATH          Path to custom IPED config directory (default: ./conf)
     -o, --output NAME          Output case name (required)
     -t, --threads NUM          Number of processing threads (default: 1/2 of system threads)
@@ -39,19 +39,19 @@ Analyze Options:
 
 Examples:
     # Process single evidence file
-    $0 process -e /data/phone.E01 -d /db/hashes -c /path/to/config -o my_case
+    $0 process -e /data/phone.E01 -d /media/hobby/8TB\ SSD/IPED/hashesdb -c /path/to/config -o my_case
 
     # Process multiple evidence files together
-    $0 process -e /data/phone.E01 -e /data/disk.dd -d /db/hashes -c /path/to/config -o my_case
+    $0 process -e /data/phone.E01 -e /data/disk.dd -d /media/hobby/8TB\ SSD/IPED/hashesdb -c /path/to/config -o my_case
 
     # Process with custom settings
-    $0 process -e /data/phone.E01 -d /db/hashes -c /path/to/config -o my_case -t 8 -m 64G
+    $0 process -e /data/phone.E01 -d /media/hobby/8TB\ SSD/IPED/hashesdb -c /path/to/config -o my_case -t 8 -m 64G
 
     # Process without GUI (headless mode)
-    $0 process -e /data/phone.E01 -e /data/disk.dd -d /db/hashes -c /path/to/config -o my_case --nogui
+    $0 process -e /data/phone.E01 -e /data/disk.dd -d /media/hobby/8TB\ SSD/IPED/hashesdb -c /path/to/config -o my_case --nogui
 
     # Continue interrupted processing
-    $0 process -e /data/phone.E01 -d /db/hashes -c /path/to/config -o my_case --continue
+    $0 process -e /data/phone.E01 -d /media/hobby/8TB\ SSD/IPED/hashesdb -c /path/to/config -o my_case --continue
 
     # Analyze processed case
     $0 analyze --case-name my_case
@@ -82,6 +82,17 @@ validate_path() {
     
     if [[ ! -e "$path" ]]; then
         echo -e "${RED}Error: $name not found: $path${NC}" >&2
+        exit 1
+    fi
+}
+
+# Function to validate path is a directory
+validate_directory() {
+    local path=$1
+    local name=$2
+    
+    if [[ ! -d "$path" ]]; then
+        echo -e "${RED}Error: $name must be a directory: $path${NC}" >&2
         exit 1
     fi
 }
@@ -169,7 +180,7 @@ cmd_process() {
         validate_path "$evidence_path" "Evidence"
     done
     
-    validate_path "$hashes_dir" "Hashes database"
+    validate_directory "$hashes_dir" "Hashes database directory"
     validate_path "$config_dir" "Config directory"
     
     # Display configuration
