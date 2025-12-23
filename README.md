@@ -1,26 +1,19 @@
-# IPED-Podman: Containerized Digital Forensics Analysis
+# IPED-cuda: Containerized IPED with GPU Support
+[![DeepWiki][deepwiki-badge]](https://deepwiki.com/AlexInABox/IPED-cuda)
+[![DeepWiki][deepwiki-badge-iped]](https://deepwiki.com/sepinf-inc/IPED)
 
-A Podman/Docker-based setup for running IPED (Integrated Platform for Electronic Evidence Discovery and Analysis) with GPU acceleration for large-scale forensic investigations.
+Podman/Docker setup for running IPED with GPU acceleration. Includes audio transcription (Whisper), face recognition (dlib), OCR, and image processing—all optimized for NVIDIA CUDA.
 
-## Features
-
-- 🔍 **Digital forensics processing** with IPED 4.2.2
-- 🎙️ **Audio transcription** using faster-whisper with CUDA
-- 👤 **Face recognition** with dlib compiled for CUDA acceleration
-- 📝 **OCR** in multiple languages
-- 🖼️ **Image thumbnail generation and similarity detection**
-- 🚀 **GPU acceleration** via NVIDIA CUDA 12.4
-- 🛠️ **CLI and headless modes** for automation and batch processing
-- 📊 **Results analysis** with interactive GUI
+**Versions**: IPED 4.2.2, CUDA 12.4
 
 ## Prerequisites
 
 ### System Requirements
 - **CPU**: 8+ cores recommended
-- **RAM**: 32GB+ (more for large datasets)
-- **GPU**: NVIDIA GPU with CUDA support (optional but highly recommended)
-- **Storage**: SSD recommended, especially for temp directory (significant write-heavy workload)
-- **OS**: Linux (Fedora, Ubuntu, Debian, Arch, or other distributions with Podman)
+- **RAM**: 32GB+
+- **GPU**: NVIDIA GPU with CUDA support (recommended)
+- **Storage**: SSD (temp directory is write-heavy)
+- **OS**: Linux with Podman
 
 ### Required Software
 ```bash
@@ -39,21 +32,15 @@ sudo pacman -S podman podman-compose
 
 ## Quick Start
 
-### 1. Build the Container Image
+### 1. Build
 
 ```bash
 ./build.sh
 ```
 
-The build script will:
-- Check for NVIDIA GPU availability
-- Build the `iped-cuda:4.2.2_7` image with GPU support
-- Preload Whisper and dlib models
-
 ### 2. Process Evidence
 
 ```bash
-# Basic usage
 ./startIped-cli.sh process \
   --evidence /path/to/evidence.E01 \
   --hashes-db /path/to/hashdb \
@@ -65,120 +52,62 @@ The build script will:
   --evidence /data/disk.dd \
   --hashes-db /db/hashes \
   --output my_case
-
-# Headless mode (no GUI)
-./startIped-cli.sh process \
-  --evidence /data/phone.E01 \
-  --hashes-db /db/hashes \
-  --output my_case \
-  --nogui
-
-# Custom settings
-./startIped-cli.sh process \
-  --evidence /data/phone.E01 \
-  --hashes-db /db/hashes \
-  --output my_case \
-  --threads 16 \
-  --memory 64G
-
-# Continue interrupted processing
-./startIped-cli.sh process \
-  --evidence /data/phone.E01 \
-  --hashes-db /db/hashes \
-  --output my_case \
-  --continue
 ```
 
 ### 3. Analyze Results
 
 ```bash
-# Analyze processed case
 ./startIped-cli.sh analyze --case-name my_case
-
-# List all available cases
-./startIped-cli.sh list
 ```
 
-### 4. Clean Up
+## Command Reference
 
-```bash
-# Remove containers and temporary files
-./startIped-cli.sh clean
-```
-
-## CLI Reference
-
-### Process Command
+### Process
 
 ```bash
 ./startIped-cli.sh process [options]
 ```
 
-**Required Options:**
-- `-e, --evidence PATH` - Path to evidence file/directory (can be specified multiple times)
-- `-d, --hashes-db PATH` - Path to hashes database directory
-- `-o, --output NAME` - Output case name
+**Required:**
+- `-e, --evidence PATH` - Evidence file/directory (repeatable)
+- `-d, --hashes-db PATH` - Hash database directory
+- `-o, --output NAME` - Case output name
 
-**Optional Options:**
-- `-c, --config PATH` - Custom IPED config directory (default: `./conf`)
-- `-t, --threads NUM` - Number of processing threads (default: half of system threads)
-- `-m, --memory SIZE` - Java heap size (default: 2/3 of physical RAM)
-- `--continue` - Continue interrupted processing
+**Optional:**
+- `-t, --threads NUM` - Processing threads (default: half available cores)
+- `-m, --memory SIZE` - Java heap size (default: 2/3 physical RAM)
+- `-c, --config PATH` - Custom config directory
+- `--continue` - Resume interrupted case
 - `--no-gpu` - Disable GPU acceleration
-- `--nogui` - Run in headless mode (no GUI)
+- `--nogui` - Headless mode
 
-### Analyze Command
+### Analyze
 
 ```bash
 ./startIped-cli.sh analyze --case-name NAME
 ```
 
-Opens the IPED analysis GUI for a previously processed case.
-
-### List Command
+### List
 
 ```bash
 ./startIped-cli.sh list
 ```
 
-Lists all completed cases in the `results/` directory.
-
-### Clean Command
+### Clean
 
 ```bash
 ./startIped-cli.sh clean
 ```
 
-Stops containers and cleans up temporary files.
-
 ## Configuration
 
-### Main Configuration Files
+Edit files in `conf/`:
+- **`IPEDConfig.txt`** - Enable/disable analysis features (hash lookup, OCR, face recognition, etc.)
+- **`LocalConfig.txt`** - Thread count, temp directories, Java memory
+- **`ParserConfig.xml`** - File type handling
+- **Other configs** - Language/feature-specific settings (see `conf/` directory)
 
-1. **`conf/IPEDConfig.txt`** - IPED processing modules
-   - Enable/disable analysis features (hash lookup, OCR, face recognition, etc.)
-   - Language settings, hash algorithms, etc.
-
-2. **`conf/LocalConfig.txt`** - Environment configuration
-   - Thread count, temp directories, database paths
-   - Java memory settings
-
-3. **`conf/ParserConfig.xml`** - File parser configuration
-   - Which file types to process
-   - Custom parser rules
-
-4. **Additional configs** - See `conf/` directory for specialized configs:
-   - `OCRConfig.txt` - Optical character recognition settings
-   - `FaceRecognitionConfig.txt` - Face detection parameters
-   - `AudioTranscriptConfig.txt` - Whisper transcription settings
-   - `HashDBLookupConfig.txt` - Hash database configuration
-   - etc.
-
-### Customization
-
-#### Memory and Thread Allocation
-
-The script automatically calculates optimal values based on system resources. Override with:
+Override with custom settings:
 
 ```bash
 ./startIped-cli.sh process \
@@ -186,113 +115,68 @@ The script automatically calculates optimal values based on system resources. Ov
   --hashes-db /db/hashes \
   --output my_case \
   --threads 8 \
-  --memory 32G
+  --memory 32G \
+  --config /custom/conf
 ```
 
-#### Custom Plugins
-
-Place `.jar` files in the `plugins/` directory before processing.
-
-#### Custom Config Directory
-
-Use a separate configuration directory:
-
-```bash
-./startIped-cli.sh process \
-  --evidence /data/phone.E01 \
-  --hashes-db /db/hashes \
-  --output my_case \
-  --config /path/to/custom/config
-```
+Place custom plugins (`.jar` files) in `plugins/`.
 
 ## Project Structure
 
 ```
-IPED-Podman/
-├── build.sh                                # Build script
-├── startIped-cli.sh                        # CLI launcher (process, analyze, list, clean)
-├── Dockerfile                              # Container image definition
-├── docker-compose.yml                      # Generated at runtime (gitignored)
+IPED-cuda/
+├── build.sh                                # Build image
+├── startIped-cli.sh                        # CLI entry point
+├── Dockerfile                              # Container definition
 ├── docker/
-│   ├── docker-compose.template.yml         # Template for processing
-│   ├── docker-compose.analyze.template.yml # Template for analysis
-│   └── docker-compose.nogui.template.yml   # Template for headless mode
-├── conf/                                   # IPED configuration directory
-│   ├── IPEDConfig.txt                      # Main IPED features config
-│   ├── LocalConfig.txt                     # Local environment settings
-│   ├── OCRConfig.txt                       # OCR settings
-│   ├── FaceRecognitionConfig.txt           # Face recognition settings
-│   ├── AudioTranscriptConfig.txt           # Audio transcription settings
-│   └── [many more configs...]              # Specialized configurations
-├── plugins/                                # Custom IPED plugin JAR files
-├── results/                                # Case output (indexed results, reports)
-├── output/                                 # Intermediate processing output
-├── logs/                                   # IPED processing logs
-├── temp/                                   # Temporary files (large!)
-└── [config files]                          # Root-level config overrides
+│   ├── docker-compose.template.yml         # Processing template
+│   ├── docker-compose.analyze.template.yml # Analysis template
+│   └── docker-compose.nogui.template.yml   # Headless template
+├── conf/                                   # Configuration files
+├── plugins/                                # Custom plugin JARs
+├── results/                                # Output (case results)
+├── logs/                                   # Processing logs
+└── temp/                                   # Temporary files
 ```
 
 ## Troubleshooting
 
-### NVIDIA GPU Not Detected
+### GPU Not Detected
 
 ```bash
-# Test if NVIDIA runtime works
 podman run --rm --device nvidia.com/gpu=all ubuntu nvidia-smi
 
-# If "failed to stat CDI host device /dev/nvidia-uvm":
+# If CDI error:
 sudo nvidia-modprobe -u -c=0
 ```
 
-### Out of Memory Errors
+### Out of Memory
 
-1. Reduce thread count:
-   ```bash
-   ./startIped-cli.sh process ... --threads 4
-   ```
-
-2. Reduce heap size:
-   ```bash
-   ./startIped-cli.sh process ... --memory 32G
-   ```
-
-3. Process evidence in smaller batches
-
-4. Close other applications
+- Reduce threads: `--threads 4`
+- Reduce heap: `--memory 32G`
+- Process in smaller batches
+- Close other applications
 
 ### Slow Processing
 
-- Verify GPU is being used: Enable `--no-gpu` to compare performance
-- Put everything (evidence, hashdb, temp, output) on the same NVME SSD drive!
-
-## Output Structure
-
-After processing, results are available in `results/<case_name>/`:
-
-```
-results/my_case/
-├── iped/                           # IPED indexed database
-├── DateiListe.csv                  # File listing
-└── reports/                        # Generated reports
-```
-
-Analyze results with:
-```bash
-./startIped-cli.sh analyze --case-name my_case
-```
+- Check GPU usage: compare with `--no-gpu` flag
+- **Important**: Put evidence, hashdb, temp, and output on the same SSD
 
 ## License
 
-This project is licensed under GPLv3. See [LICENSE](LICENSE) for details.
+Licensed under GPLv3. See [LICENSE](LICENSE).
 
-IPED and related components:
-- **IPED**: https://github.com/sepinf-inc/IPED (GPLv3)
-- **Base Image**: https://hub.docker.com/r/ipeddocker/iped
-- **Whisper**: https://github.com/openai/whisper (MIT)
-- **dlib**: http://dlib.net (Boost Software License)
+**Related projects:**
+- [IPED](https://github.com/sepinf-inc/IPED) (GPLv3+)
+- [IPED Docker](https://github.com/iped-docker/iped)
+- [Whisper](https://github.com/openai/whisper) (MIT)
+- [dlib](http://dlib.net) (Boost License 1.0)
 
-## References
+**Docs:**
+- [IPED Wiki](https://github.com/sepinf-inc/IPED/wiki)
+- [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/)
 
-- IPED Documentation: https://github.com/sepinf-inc/IPED/wiki
-- IPED GitHub: https://github.com/sepinf-inc/IPED
-- NVIDIA Container Toolkit: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/
+<!-- Badge references -->
+[deepwiki-badge]: https://img.shields.io/badge/DeepWiki-AlexInABox%2FIPED--cuda-blue.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACwAAAAyCAYAAAAnWDnqAAAAAXNSR0IArs4c6QAAA05JREFUaEPtmUtyEzEQhtWTQyQLHNak2AB7ZnyXZMEjXMGeK/AIi+QuHrMnbChYY7MIh8g01fJoopFb0uhhEqqcbWTp06/uv1saEDv4O3n3dV60RfP947Mm9/SQc0ICFQgzfc4CYZoTPAswgSJCCUJUnAAoRHOAUOcATwbmVLWdGoH//PB8mnKqScAhsD0kYP3j/Yt5LPQe2KvcXmGvRHcDnpxfL2zOYJ1mFwrryWTz0advv1Ut4CJgf5uhDuDj5eUcAUoahrdY/56ebRWeraTjMt/00Sh3UDtjgHtQNHwcRGOC98BJEAEymycmYcWwOprTgcB6VZ5JK5TAJ+fXGLBm3FDAmn6oPPjR4rKCAoJCal2eAiQp2x0vxTPB3ALO2CRkwmDy5WohzBDwSEFKRwPbknEggCPB/imwrycgxX2NzoMCHhPkDwqYMr9tRcP5qNrMZHkVnOjRMWwLCcr8ohBVb1OMjxLwGCvjTikrsBOiA6fNyCrm8V1rP93iVPpwaE+gO0SsWmPiXB+jikdf6SizrT5qKasx5j8ABbHpFTx+vFXp9EnYQmLx02h1QTTrl6eDqxLnGjporxl3NL3agEvXdT0WmEost648sQOYAeJS9Q7bfUVoMGnjo4AZdUMQku50McDcMWcBPvr0SzbTAFDfvJqwLzgxwATnCgnp4wDl6Aa+Ax283gghmj+vj7feE2KBBRMW3FzOpLOADl0Isb5587h/U4gGvkt5v60Z1VLG8BhYjbzRwyQZemwAd6cCR5/XFWLYZRIMpX39AR0tjaGGiGzLVyhse5C9RKC6ai42ppWPKiBagOvaYk8lO7DajerabOZP46Lby5wKjw1HCRx7p9sVMOWGzb/vA1hwiWc6jm3MvQDTogQkiqIhJV0nBQBTU+3okKCFDy9WwferkHjtxib7t3xIUQtHxnIwtx4mpg26/HfwVNVDb4oI9RHmx5WGelRVlrtiw43zboCLaxv46AZeB3IlTkwouebTr1y2NjSpHz68WNFjHvupy3q8TFn3Hos2IAk4Ju5dCo8B3wP7VPr/FGaKiG+T+v+TQqIrOqMTL1VdWV1DdmcbO8KXBz6esmYWYKPwDL5b5FA1a0hwapHiom0r/cKaoqr+27/XcrS5UwSMbQAAAABJRU5ErkJggg==
+
+[deepwiki-badge-iped]: https://img.shields.io/badge/DeepWiki-sepinf--inc%2FIPED-blue.svg?logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACwAAAAyCAYAAAAnWDnqAAAAAXNSR0IArs4c6QAAA05JREFUaEPtmUtyEzEQhtWTQyQLHNak2AB7ZnyXZMEjXMGeK/AIi+QuHrMnbChYY7MIh8g01fJoopFb0uhhEqqcbWTp06/uv1saEDv4O3n3dV60RfP947Mm9/SQc0ICFQgzfc4CYZoTPAswgSJCCUJUnAAoRHOAUOcATwbmVLWdGoH//PB8mnKqScAhsD0kYP3j/Yt5LPQe2KvcXmGvRHcDnpxfL2zOYJ1mFwrryWTz0advv1Ut4CJgf5uhDuDj5eUcAUoahrdY/56ebRWeraTjMt/00Sh3UDtjgHtQNHwcRGOC98BJEAEymycmYcWwOprTgcB6VZ5JK5TAJ+fXGLBm3FDAmn6oPPjR4rKCAoJCal2eAiQp2x0vxTPB3ALO2CRkwmDy5WohzBDwSEFKRwPbknEggCPB/imwrycgxX2NzoMCHhPkDwqYMr9tRcP5qNrMZHkVnOjRMWwLCcr8ohBVb1OMjxLwGCvjTikrsBOiA6fNyCrm8V1rP93iVPpwaE+gO0SsWmPiXB+jikdf6SizrT5qKasx5j8ABbHpFTx+vFXp9EnYQmLx02h1QTTrl6eDqxLnGjporxl3NL3agEvXdT0WmEost648sQOYAeJS9Q7bfUVoMGnjo4AZdUMQku50McDcMWcBPvr0SzbTAFDfvJqwLzgxwATnCgnp4wDl6Aa+Ax283gghmj+vj7feE2KBBRMW3FzOpLOADl0Isb5587h/U4gGvkt5v60Z1VLG8BhYjbzRwyQZemwAd6cCR5/XFWLYZRIMpX39AR0tjaGGiGzLVyhse5C9RKC6ai42ppWPKiBagOvaYk8lO7DajerabOZP46Lby5wKjw1HCRx7p9sVMOWGzb/vA1hwiWc6jm3MvQDTogQkiqIhJV0nBQBTU+3okKCFDy9WwferkHjtxib7t3xIUQtHxnIwtx4mpg26/HfwVNVDb4oI9RHmx5WGelRVlrtiw43zboCLaxv46AZeB3IlTkwouebTr1y2NjSpHz68WNFjHvupy3q8TFn3Hos2IAk4Ju5dCo8B3wP7VPr/FGaKiG+T+v+TQqIrOqMTL1VdWV1DdmcbO8KXBz6esmYWYKPwDL5b5FA1a0hwapHiom0r/cKaoqr+27/XcrS5UwSMbQAAAABJRU5ErkJggg==
