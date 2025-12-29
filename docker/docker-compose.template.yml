@@ -7,12 +7,6 @@ services:
       nproc:
         soft: -1
         hard: -1
-    environment:
-      - DISPLAY=${DISPLAY}
-      - GDK_BACKEND=${GDK_BACKEND}
-      - GDK_SCALE=${GDK_SCALE}
-      - SAL_USE_VCLPLUGIN=gen
-      - GDK_DPI_SCALE=${GDK_DPI_SCALE}
     command: >
       java -jar iped.jar -Xmx30G --portable
       __EVIDENCE_PATHS__
@@ -27,8 +21,5 @@ services:
       - "./LocalConfig.txt:/opt/IPED/iped/LocalConfig.txt"
       - "./logs:/opt/IPED/iped-4.2.2/log"
       - "/etc/localtime:/etc/localtime:ro"
-      - "/tmp/.X11-unix/:/tmp/.X11-unix/"
     devices:
       - "nvidia.com/gpu=all"
-      - "/dev/dri:/dev/dri"
-      - "/dev/snd:/dev/snd"

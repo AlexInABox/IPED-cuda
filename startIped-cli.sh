@@ -17,7 +17,6 @@ Usage: $0 <command> [options]
 
 Commands:
     process     Process evidence files
-    analyze     Open analysis GUI for processed case
     list        List available processed cases
     clean       Clean up temporary files and containers
 
@@ -33,9 +32,9 @@ Process Options:
     --nogui                    Run IPED without GUI (headless mode)
     -h, --help                 Show this help message
 
-Analyze Options:
-    -n, --case-name NAME       Case name to analyze (required)
-    -h, --help                 Show this help message
+List Options:
+    -n, --case NAME            Show detailed info about specific case
+    -v, --verbose              Show detailed info for all cases
 
 Examples:
     # Process single evidence file
@@ -53,11 +52,14 @@ Examples:
     # Continue interrupted processing
     $0 process -e /data/phone.E01 -d /media/hobby/8TB\ SSD/IPED/hashesdb -c /path/to/config -o my_case --continue
 
-    # Analyze processed case
-    $0 analyze --case-name my_case
-
     # List all cases
     $0 list
+
+    # Show details for a case
+    $0 list -n 25-0450a-1
+
+    # Show details for all cases
+    $0 list -v
 
 EOF
     exit 1
@@ -223,11 +225,7 @@ cmd_process() {
     fi
     
     # Generate docker-compose.yml from template
-    if [[ "$nogui_flag" == "true" ]]; then
-        TEMPLATE="docker/docker-compose.nogui.template.yml"
-    else
-        TEMPLATE="docker/docker-compose.template.yml"
-    fi
+    TEMPLATE="docker/docker-compose.template.yml"
     
     # Build evidence paths flags for IPED command
     local evidence_flags=""
@@ -277,6 +275,23 @@ cmd_process() {
         -e "s|__CONF_PATH__|$config_dir|g" \
         "$TEMPLATE" > docker-compose.yml
     
+    # If GUI requested, inject environment variables, X11 mount and device access
+    if [[ "$nogui_flag" == "false" ]]; then
+        # Add environment block before the command line
+        sed -i '/^[[:space:]]*command: >/i\    environment:\n      - DISPLAY=${DISPLAY}\n      - GDK_BACKEND=${GDK_BACKEND}\n      - GDK_SCALE=${GDK_SCALE}\n      - SAL_USE_VCLPLUGIN=gen\n      - GDK_DPI_SCALE=${GDK_DPI_SCALE}' docker-compose.yml
+
+        # Add X11 socket mount to volumes (after /etc/localtime entry)
+        sed -i '/^      - "\/etc\/localtime:\/etc\/localtime:ro"/a\      - "/tmp/.X11-unix/:/tmp/.X11-unix/"' docker-compose.yml
+
+        # Add DRM and sound device entries. If a devices: section exists, append there;
+        # otherwise create a devices: section (do NOT add GPU here; template may already contain it).
+        if grep -q "^[[:space:]]*devices:" docker-compose.yml; then
+            sed -i '/^[[:space:]]*devices:/a\      - "/dev/dri:/dev/dri"\n      - "/dev/snd:/dev/snd"' docker-compose.yml
+        else
+            sed -i '$a\    devices:\n      - "/dev/dri:/dev/dri"\n      - "/dev/snd:/dev/snd"' docker-compose.yml
+        fi
+    fi
+
     # Update memory settings
     sed -i "s|-Xmx[0-9]*G|-Xmx$memory|g" docker-compose.yml
     
@@ -368,20 +383,20 @@ EOF
     podman-compose --podman-run-args="--pids-limit=-1" up
 }
 
-# Command: Analyze results
-cmd_analyze() {
-    local case_name=""
-    local evidence_path=""
-    
+# Command: List cases
+cmd_list() {
+    local verbose="false"
+    local detail_case=""
+
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case $1 in
-            -n|--case-name)
-                case_name="$2"
-                shift 2
+            -v|--verbose)
+                verbose="true"
+                shift
                 ;;
-            -e|--evidence)
-                evidence_path="$2"
+            -n|--case)
+                detail_case="$2"
                 shift 2
                 ;;
             -h|--help)
@@ -393,57 +408,57 @@ cmd_analyze() {
                 ;;
         esac
     done
-    
-    # Validate required arguments
-    validate_required "case_name" "$case_name" "Case name"
-    
-    if [[ ! -d "./results/$case_name" ]]; then
-        echo -e "${RED}Error: Case not found: ./results/$case_name${NC}" >&2
-        echo -e "${YELLOW}Available cases:${NC}"
-        ls -1 ./results/ 2>/dev/null || echo "  (none)"
-        exit 1
-    fi
-    
-    echo -e "${GREEN}Opening analysis GUI for case: $case_name${NC}"
-    echo ""
-    
-    # Generate analyze compose file
-    TEMPLATE="docker/docker-compose.analyze.template.yml"
-    
-    sed \
-        -e "s|__EVIDENCE_NAME_NOEXT__|$case_name|g" \
-        "$TEMPLATE" > docker-compose.yml
-    
-    # Cleanup
-    podman-compose down 2>/dev/null || true
-    
-    # Set up X11
-    if [[ -n "${DISPLAY:-}" ]]; then
-        xhost +local:$(id -un) 2>/dev/null || true
-    else
-        echo -e "${RED}Error: DISPLAY not set. Cannot start GUI.${NC}" >&2
-        exit 1
-    fi
-    
-    # Start analysis GUI
-    podman-compose up
-}
 
-# Command: List cases
-cmd_list() {
     echo -e "${GREEN}=== Processed Cases ===${NC}"
-    if [[ -d "./results" ]]; then
-        for case_dir in ./results/*/; do
-            if [[ -d "$case_dir" ]]; then
+
+    if [[ ! -d "./results" ]]; then
+        echo "  (no cases found)"
+        return
+    fi
+
+    show_case_detail() {
+        local cd="$1"
+        local name=$(basename "$cd")
+        local size=$(du -sh "$cd" 2>/dev/null | cut -f1)
+        local modified=$(stat -c %y "$cd" 2>/dev/null | cut -d' ' -f1)
+        echo "  $name (Size: $size, Modified: $modified)"
+
+        if [[ -f "$cd/.iped-evidence-info" ]]; then
+            (
+                source "$cd/.iped-evidence-info"
+                echo "    Processed: ${PROCESSING_DATE:-unknown}"
+                echo "    Evidence:"
+                for p in "${EVIDENCE_PATHS[@]}"; do echo "      - $p"; done
+            )
+        fi
+
+        echo "    Top-level contents:"
+        ls -lh "$cd" 2>/dev/null | tail -n +2 | head -20 | sed 's/^/      /' || true
+        local file_count=$(find "$cd" -type f 2>/dev/null | wc -l)
+        echo "    Total files: $file_count"
+    }
+
+    if [[ -n "$detail_case" ]]; then
+        if [[ ! -d "./results/$detail_case" ]]; then
+            echo -e "${RED}Error: Case not found: ./results/$detail_case${NC}" >&2
+            return 1
+        fi
+        show_case_detail "./results/$detail_case"
+        return
+    fi
+
+    for case_dir in ./results/*/; do
+        if [[ -d "$case_dir" ]]; then
+            if [[ "$verbose" == "true" ]]; then
+                show_case_detail "$case_dir"
+            else
                 case_name=$(basename "$case_dir")
                 size=$(du -sh "$case_dir" 2>/dev/null | cut -f1)
                 modified=$(stat -c %y "$case_dir" 2>/dev/null | cut -d' ' -f1)
                 echo "  $case_name (Size: $size, Modified: $modified)"
             fi
-        done
-    else
-        echo "  (no cases found)"
-    fi
+        fi
+    done
 }
 
 # Command: Clean
@@ -477,9 +492,6 @@ shift || true
 case "$COMMAND" in
     process)
         cmd_process "$@"
-        ;;
-    analyze)
-        cmd_analyze "$@"
         ;;
     list)
         cmd_list "$@"
