@@ -90,10 +90,6 @@ RUN apt-get update && \
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1 \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1 
 
-# Set pip and pip3 to Python 3.9
-RUN update-alternatives --install /usr/bin/pip pip /usr/bin/pip3.9 1 \
-    && update-alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.9 1
-
 RUN pip3 install --upgrade pip
 
 RUN pip3 install \
@@ -131,7 +127,7 @@ RUN git clone https://github.com/libyal/libagdb.git /libagdb
 WORKDIR /libagdb
 RUN ./synclibs.sh && \
     ./autogen.sh && \
-    ./configure --prefix=/usr --with-libbfio=no && \
+    ./configure --prefix=/usr && \
     make all install && \
     ldconfig
 
@@ -143,11 +139,9 @@ RUN git clone https://github.com/libyal/libpff.git /libpff
 WORKDIR /libpff
 RUN ./synclibs.sh && \
     ./autogen.sh && \
-    ./configure --prefix=/usr --with-libbfio=no --enable-python PYTHON_VERSION=3.9 PYTHON=/usr/bin/python3.9 && \
+    ./configure --prefix=/usr && \
     make all install && \
-    cd pybind && python3.9 setup.py install && \
     ldconfig
-
 
 # =============================================================================
 # Stage 5: Build and install libjxl from source
@@ -185,13 +179,15 @@ RUN ./bootstrap && \
     ./configure && \
     make && \
     make install && \
+    mkdir -p /usr/share/java && \
+    cp bindings/java/dist/sleuthkit-4.12.0.jar /usr/share/java/sleuthkit-4.12.0.jar && \
     ldconfig
 
 # =============================================================================
 # Stage 8: Build and install IPED
 # =============================================================================
 
-RUN git clone --branch 4.3.0 https://github.com/sepinf-inc/IPED.git /IPED
+RUN git clone --branch 4.2.2 https://github.com/sepinf-inc/IPED.git /IPED
 WORKDIR /IPED
 RUN mvn clean install
 
