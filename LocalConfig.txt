@@ -37,8 +37,4 @@ tskJarPath = /usr/share/java/sleuthkit-4.12.0.jar
 # Plugin folder for optional libs not embedded because of license restrictions.
 # They will be dynamically loaded at runtime.
 # !! INTERNAL DOCKER PATH !!
-pluginFolder = ../plugins/
-
-
-
-#test flag string !
+pluginFolder = /opt/plugins/

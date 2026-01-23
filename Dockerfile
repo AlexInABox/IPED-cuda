@@ -8,11 +8,11 @@ ENV LD_LIBRARY_PATH=/usr/local/lib/python3.9/dist-packages/nvidia/cublas/lib:/us
 # --- System packages ---
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3 python3-pip git ffmpeg cmake pkg-config imagemagick graphicsmagick wget \
-        libopenblas-dev liblapack-dev \
-        libavdevice-dev libavfilter-dev libavformat-dev \
-        libavcodec-dev libswresample-dev libswscale-dev libavutil-dev \
-        libpng-dev libjpeg-dev libwebp-dev libx11-dev && \
+    python3 python3-pip git ffmpeg cmake pkg-config imagemagick graphicsmagick wget \
+    libopenblas-dev liblapack-dev \
+    libavdevice-dev libavfilter-dev libavformat-dev \
+    libavcodec-dev libswresample-dev libswscale-dev libavutil-dev \
+    libpng-dev libjpeg-dev libwebp-dev libx11-dev && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     pip3 install --upgrade pip
 
@@ -21,20 +21,20 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86
     dpkg -i cuda-keyring_1.1-1_all.deb && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        cuda-toolkit-12-4 \
-        libcudnn9-cuda-12 libcudnn9-dev-cuda-12 && \
+    cuda-toolkit-12-4 \
+    libcudnn9-cuda-12 libcudnn9-dev-cuda-12 && \
     rm -f cuda-keyring_1.1-1_all.deb && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # --- Python packages ---
 RUN pip3 install \
-        faster-whisper gputil \
-        nvidia-cublas-cu12 nvidia-cudnn-cu12==9.*
+    faster-whisper gputil \
+    nvidia-cublas-cu12 nvidia-cudnn-cu12==9.*
 
 # --- Preload models ---
 RUN python3 -c "\
-from faster_whisper import WhisperModel; \
-[WhisperModel(model, compute_type='int8') for model in ['large-v3']]"
+    from faster_whisper import WhisperModel; \
+    [WhisperModel(model, compute_type='int8') for model in ['large-v3']]"
 
 # --- Build dlib with CUDA ---
 RUN pip3 uninstall dlib -y && \

@@ -1,5 +1,7 @@
 FROM docker.io/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
+ENV IPED_VERSION=4.3.0
+
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SAL_USE_VCLPLUGIN=gtk
 ENV JAVA_HOME=/usr/lib/jvm/bellsoft-java11-full-amd64/
@@ -14,6 +16,8 @@ RUN apt-get update && \
     apt-get install -y \
     ca-certificates \
     wget \
+    curl \
+    unzip \
     gnupg \
     git \
     software-properties-common \
@@ -39,26 +43,10 @@ RUN apt-get update && \
     apt-get install -y \
     # Sleuthkit build dependencies
     libssl-dev \
-    libafflib-dev \
-    libvslvm-dev \
     libcppunit-dev \
     libsqlite3-dev \
     # Forensic libraries
-    libewf-dev \
-    libvmdk-dev \
-    libvhdi-dev \
-    libpff-dev \
-    libesedb-dev \
-    libesedb-utils \
-    libmsiecf-dev \
-    libmsiecf-utils \
-    libscca-dev \
-    libscca-utils \
     # Runtime libraries
-    libewf2 \
-    libvmdk1 \
-    libvmdk-utils \
-    libvslvm-utils \
     # Tools for IPED
     tesseract-ocr tesseract-ocr-osd tesseract-ocr-por tesseract-ocr-eng tesseract-ocr-deu tesseract-ocr-frk tesseract-ocr-ita \
     imagemagick \
@@ -67,11 +55,7 @@ RUN apt-get update && \
     libreoffice-gtk2 \
     libparse-win32registry-perl \
     graphviz \
-    libevt-utils \
-    libevtx-utils \
-    afflib-tools \
-    rifiuti2 \
-    pff-tools && \
+    rifiuti2 &&\
     # "Python nation! Rise up!"
     add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
@@ -84,28 +68,17 @@ RUN apt-get update && \
     libavcodec-dev libswresample-dev libswscale-dev \
     libavutil-dev \
     libgif-dev libjpeg-dev libopenexr-dev libpng-dev libwebp-dev libavif-dev \
-    libbrotli-dev 
-
+    libbrotli-dev \ 
+    # For libewf
+    bison \
+    flex \
+    yasm \
+    gettext
 # Set python3.9 as default python3 and python
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1 \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1 
 
-RUN pip3 install --upgrade pip
 
-RUN pip3 install \
-    packaging \
-    faster-whisper \
-    gputil \
-    numpy==1.26.4 \
-    jep==4.2.0 \
-    pillow \
-    tensorflow==2.10 \
-    face_recognition \
-    opencv-python==4.11.0.86 \
-    transformers \
-    torch \
-    huggingsound \
-    bs4
 
 # =============================================================================
 # Stage 2: Build and install libbfio
@@ -120,7 +93,66 @@ RUN ./synclibs.sh && \
     ldconfig
 
 # =============================================================================
-# Stage 3: Build and install libagdb
+# Stage 3: Build and install libvslvm
+# =============================================================================
+
+RUN git clone https://github.com/libyal/libvslvm.git /libvslvm
+WORKDIR /libvslvm
+RUN ./synclibs.sh && \
+    ./autogen.sh && \
+    ./configure --prefix=/usr && \
+    make all install && \
+    ldconfig
+
+# =============================================================================
+# Stage 4: Build and install libvmdk
+# =============================================================================
+
+RUN git clone https://github.com/libyal/libvmdk.git /libvmdk
+WORKDIR /libvmdk
+RUN ./synclibs.sh && \
+    ./autogen.sh && \
+    ./configure --prefix=/usr && \
+    make all install && \
+    ldconfig
+
+# =============================================================================
+# Stage 5: Build and install libvhdi
+# =============================================================================
+
+RUN git clone https://github.com/libyal/libvhdi.git /libvhdi
+WORKDIR /libvhdi
+RUN ./synclibs.sh && \
+    ./autogen.sh && \
+    ./configure --prefix=/usr && \
+    make all install && \
+    ldconfig
+
+# =============================================================================
+# Stage 6: Build and install libewf
+# =============================================================================
+
+RUN git clone https://github.com/libyal/libewf.git /libewf
+WORKDIR /libewf
+RUN ./synclibs.sh && \
+    ./autogen.sh && \
+    ./configure --prefix=/usr && \
+    make all install && \
+    ldconfig
+
+# =============================================================================
+# Stage 7: Build and install afflib
+# =============================================================================
+
+RUN git clone -b v3.7.20 https://github.com/sshock/AFFLIBv3.git /AFFLIBv3
+WORKDIR /AFFLIBv3
+RUN ./bootstrap.sh && \
+    ./configure --prefix=/usr && \
+    make all install && \
+    ldconfig
+
+# =============================================================================
+# Stage 8: Build and install libagdb
 # =============================================================================
 
 RUN git clone https://github.com/libyal/libagdb.git /libagdb
@@ -132,7 +164,55 @@ RUN ./synclibs.sh && \
     ldconfig
 
 # =============================================================================
-# Stage 4: Build and install libpff
+# Stage 9: Build and install libevtx
+# =============================================================================
+
+RUN git clone https://github.com/libyal/libevtx.git /libevtx
+WORKDIR /libevtx
+RUN ./synclibs.sh && \
+    ./autogen.sh && \
+    ./configure --prefix=/usr && \
+    make all install && \
+    ldconfig
+
+# =============================================================================
+# Stage 10: Build and install libevt
+# =============================================================================
+
+RUN git clone https://github.com/libyal/libevt.git /libevt
+WORKDIR /libevt
+RUN ./synclibs.sh && \
+    ./autogen.sh && \
+    ./configure --prefix=/usr && \
+    make all install && \
+    ldconfig
+
+# =============================================================================
+# Stage 11: Build and install libscca
+# =============================================================================
+
+RUN git clone https://github.com/libyal/libscca.git /libscca
+WORKDIR /libscca
+RUN ./synclibs.sh && \
+    ./autogen.sh && \
+    ./configure --prefix=/usr && \
+    make all install && \
+    ldconfig
+
+# =============================================================================
+# Stage 12: Build and install libesedb
+# =============================================================================
+
+RUN git clone https://github.com/libyal/libesedb.git /libesedb
+WORKDIR /libesedb
+RUN ./synclibs.sh && \
+    ./autogen.sh && \
+    ./configure --prefix=/usr && \
+    make all install && \
+    ldconfig
+
+# =============================================================================
+# Stage 13: Build and install libpff
 # =============================================================================
 
 RUN git clone https://github.com/libyal/libpff.git /libpff
@@ -144,39 +224,40 @@ RUN ./synclibs.sh && \
     ldconfig
 
 # =============================================================================
-# Stage 5: Build and install libjxl from source
+# Stage 14: Build and install libmsiecf
+# =============================================================================
+
+RUN git clone https://github.com/libyal/libmsiecf.git /libmsiecf
+WORKDIR /libmsiecf
+RUN ./synclibs.sh && \
+    ./autogen.sh && \
+    ./configure --prefix=/usr && \
+    make all install && \
+    ldconfig
+
+# =============================================================================
+# Stage 15: Build and install libjxl (JPEG XL)
 # =============================================================================
 
 RUN git clone https://github.com/libjxl/libjxl.git --recursive --shallow-submodules /libjxl
 WORKDIR /libjxl
 RUN mkdir build && cd build && \
-    cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF ../ && \
-    cmake --build . -- && \
+    cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF .. && \
+    cmake --build . && \
     cmake --install . && \
     ldconfig
 
 # =============================================================================
-# Stage 6: Build and install dlib with CUDA
-# =============================================================================
-
-RUN git clone https://github.com/davisking/dlib.git /dlib 
-WORKDIR /dlib
-RUN pip3 uninstall dlib -y && \
-    git submodule update --init && \
-    mkdir build && cd build && \
-    cmake -D DLIB_USE_CUDA=1 -D USE_AVX_INSTRUCTIONS=1 ../ && \
-    cmake --build . --config Release -- -j$(nproc) && \
-    cd ../ && python3 setup.py install && \
-    ldconfig
-
-# =============================================================================
-# Stage 7: Build and install Sleuthkit (IPED patched version)
+# Stage 16: Build and install Sleuthkit (IPED patched version)
 # =============================================================================
 
 RUN git clone -b 4.12.0_iped_patch https://github.com/sepinf-inc/sleuthkit.git /sleuthkit
+
+COPY ewf.cpp.patch /sleuthkit
 WORKDIR /sleuthkit
+RUN patch tsk/img/ewf.cpp < ewf.cpp.patch
 RUN ./bootstrap && \
-    ./configure && \
+    ./configure --prefix=/usr/ --enable-java && \
     make && \
     make install && \
     mkdir -p /usr/share/java && \
@@ -184,17 +265,73 @@ RUN ./bootstrap && \
     ldconfig
 
 # =============================================================================
-# Stage 8: Build and install IPED
+# Stage 17: Install Python packages
 # =============================================================================
 
-RUN git clone --branch 4.2.2 https://github.com/sepinf-inc/IPED.git /IPED
-WORKDIR /IPED
-RUN mvn clean install
+RUN pip3 install --upgrade pip
+
+RUN pip3 install \
+    packaging \
+    faster-whisper \
+    gputil \
+    numpy==1.26.4 \
+    jep==4.2.0 \
+    pillow \
+    tensorflow==2.10 \
+    face_recognition \
+    opencv-python==4.11.0.86 \
+    transformers \
+    torch>=2.1.0 \
+    huggingsound \
+    bs4
 
 # =============================================================================
-# Cleanup: Remove package cache and build directories
+# Stage 18: Build dlib with CUDA support
+# =============================================================================
+
+RUN pip3 uninstall dlib -y && \
+    mkdir -p /opt/SP/packages && cd /opt/SP/packages && \
+    git clone https://github.com/davisking/dlib.git && cd dlib && \
+    git submodule update --init && \
+    mkdir build && cd build && \
+    cmake -D DLIB_USE_CUDA=1 -D USE_AVX_INSTRUCTIONS=1 ../ && \
+    cmake --build . --config Release -- -j$(nproc) && \
+    cd ../ && python3 setup.py install && \
+    cd /opt/SP/packages && rm -rf dlib
+
+# =============================================================================
+# Stage 19: Preload models
+# =============================================================================
+# If you need custom models replace ['large-v3'] with your own comma separated list of models from huggingface
+# e.g. ['small', 'medium', 'large-v2'] or ['Flurin17/whisper-large-v3-turbo-swiss-german', 'large-v3']
+RUN python3 -c "from faster_whisper import WhisperModel; [WhisperModel(model, compute_type='int8') for model in ['large-v3']]"
+
+# =============================================================================
+# Stage 20: Download and install IPED release
+# =============================================================================
+
+WORKDIR /opt
+RUN curl -L https://github.com/sepinf-inc/IPED/releases/download/${IPED_VERSION}/IPED-${IPED_VERSION}_and_java_plugins.zip --output /tmp/iped.zip && \
+    unzip /tmp/iped.zip && \
+    ls | grep "iped-" | xargs -I {} sh -c 'ln -s "{}" iped' && \
+    rm /tmp/iped.zip
+
+# =============================================================================
+# Stage 21: Cleanup
 # =============================================================================
 
 RUN apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     rm -rf /libbfio /libagdb /sleuthkit
+
+RUN ls -la /opt/iped/
+
+WORKDIR /opt/iped
+CMD ["/bin/bash"]
+
+# =============================================================================
+
+LABEL org.opencontainers.image.authors="AlexInABox"
+LABEL org.opencontainers.image.licenses="AGPL-3.0"
+LABEL org.opencontainers.image.url="https://github.com/AlexInABox/IPED-cuda"
+LABEL org.opencontainers.image.source="https://github.com/AlexInABox/IPED-cuda"

@@ -1,7 +1,7 @@
 version: "3.9"
 services:
   iped:
-    image: iped-cuda:4.2.2_7
+    image: iped-cuda:4.3.0
     privileged: true
     ulimits:
       nproc:
