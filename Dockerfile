@@ -1,4 +1,4 @@
-FROM docker.io/ipeddocker/iped:4.2.2_7
+FROM docker.io/ipeddocker/iped:4.3.0
 
 # --- Environment setup ---
 ENV LD_LIBRARY_PATH=/usr/local/lib/python3.9/dist-packages/nvidia/cublas/lib:/usr/local/lib/python3.9/dist-packages/nvidia/cudnn/lib:$LD_LIBRARY_PATH \
