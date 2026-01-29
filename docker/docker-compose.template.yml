@@ -16,10 +16,10 @@ services:
       - "./ipedtmp:/mnt/ipedtmp"
       __EVIDENCE_PATHS_VOLUMES__
       - "__HASHES_PATH__:/mnt/hashesdb:ro"
-      - "__CONF_PATH__:/opt/IPED/iped/conf"
-      - "./IPEDConfig.txt:/opt/IPED/iped/IPEDConfig.txt"
-      - "./LocalConfig.txt:/opt/IPED/iped/LocalConfig.txt"
-      - "./logs:/opt/IPED/iped-4.2.2/log"
+      - "__CONF_PATH__:/opt/iped/conf"
+      - "./IPEDConfig.txt:/opt/iped/IPEDConfig.txt"
+      - "./LocalConfig.txt:/opt/iped/LocalConfig.txt"
+      - "./logs:/opt/iped/log"
       - "/etc/localtime:/etc/localtime:ro"
     devices:
       - "nvidia.com/gpu=all"

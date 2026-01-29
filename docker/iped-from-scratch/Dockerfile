@@ -51,6 +51,8 @@ RUN apt-get update && \
     tesseract-ocr tesseract-ocr-osd tesseract-ocr-por tesseract-ocr-eng tesseract-ocr-deu tesseract-ocr-frk tesseract-ocr-ita \
     imagemagick \
     mplayer \
+    ffmpeg \
+    mpv \
     libreoffice-java-common \
     libreoffice-gtk2 \
     libparse-win32registry-perl \
@@ -317,7 +319,25 @@ RUN curl -L https://github.com/sepinf-inc/IPED/releases/download/${IPED_VERSION}
     rm /tmp/iped.zip
 
 # =============================================================================
-# Stage 21: Cleanup
+# Stage 21: Download and install JPEG2000 plugin
+# =============================================================================
+
+RUN curl -L https://mvnrepository.com/artifact/com.github.jai-imageio/jai-imageio-jpeg2000/1.4.0 -o /tmp/jai-imageio-jpeg2000-1.4.0.jar && \
+    cp /tmp/jai-imageio-jpeg2000-1.4.0.jar /opt/plugins/ && \
+    rm /tmp/jai-imageio-jpeg2000-1.4.0.jar
+
+# =============================================================================
+# Stage 22: Apply library and JAR patches
+# =============================================================================
+
+# I dont fully understand why the following is needed!! https://github.com/iped-docker/iped/blob/d9f3f36e09bb20f1db1c3bae6b0e7b09fbd65ce5/Dockerfile.processor#L87C1-L93C102
+## Removing IPED's TSK-JAVA-JNI lib to avoid conflict of libs
+RUN rm -v /opt/iped/lib/sleuthkit-4.12.0.p1.jar
+## TEMP PATCH JEP-4.2.0 to avoid conflict of libs
+RUN cp /usr/local/lib/python3.9/dist-packages/jep/jep-4.2.0.jar /opt/iped/lib/jep-4.0.3.jar
+
+# =============================================================================
+# Stage 23: Cleanup
 # =============================================================================
 
 RUN apt-get clean && \
