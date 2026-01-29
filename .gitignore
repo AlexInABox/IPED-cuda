@@ -5,6 +5,7 @@ docker-compose.yml
 results/
 ipedtmp/
 logs/
+hashesdb/
 
 # Cache files
 .cache/
