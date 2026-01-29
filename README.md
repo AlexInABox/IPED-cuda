@@ -103,26 +103,10 @@ podman build docker/ -t iped-cuda:4.3.0
 
 ## Configuration
 
-Edit files in `conf/`:
+To configure the behaviour or profiles of IPED, just modfiy the files in `conf/` before starting a new case.
+You can additionally edit `IPEDConfig.txt` or `LocalConfig.txt`!
 
-- **`IPEDConfig.txt`** - Enable/disable analysis features (hash lookup, OCR, face recognition, etc.)
-- **`LocalConfig.txt`** - Thread count, temp directories, Java memory
-- **`ParserConfig.xml`** - File type handling
-- **Other configs** - Language/feature-specific settings (see `conf/` directory)
-
-Override with custom settings:
-
-```bash
-./startIped-cli.sh process \
-  --evidence /data/phone.E01 \
-  --hashes-db /db/hashes \
-  --output my_case \
-  --threads 8 \
-  --memory 32G \
-  --config /custom/conf
-```
-
-Place custom plugins (`.jar` files) in `plugins/`.
+All configuration files will be mounted into the container at runtime. So theres no need to rebuild the image ^^
 
 ## Project Structure
 
