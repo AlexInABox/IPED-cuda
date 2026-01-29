@@ -80,7 +80,8 @@ RUN apt-get update && \
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1 \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1 
 
-
+# Run mplayer once to create config dir to avoid issues later
+RUN mplayer
 
 # =============================================================================
 # Stage 2: Build and install libbfio
