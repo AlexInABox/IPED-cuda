@@ -1,26 +1,29 @@
 FROM docker.io/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
 ENV IPED_VERSION=4.3.0
-
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SAL_USE_VCLPLUGIN=gtk
 ENV JAVA_HOME=/usr/lib/jvm/bellsoft-java11-full-amd64/
-ENV TZ=Europe/Berlin
-ENV LD_LIBRARY_PATH=/usr/lib/:/usr/local/lib/python3.9/dist-packages/jep/
+ENV PATH=$JAVA_HOME/bin:$PATH
+ENV LD_LIBRARY_PATH=/usr/local/lib/:/usr/lib/:/usr/local/lib/python3.10/dist-packages/jep/
+ENV MAVEN_OPTS="-Djava.library.path=/usr/local/lib/python3.10/dist-packages/jep -Dfile.encoding=UTF-8"
 
 # =============================================================================
-# Stage 1: Configure repositories and install all packages at once
+# Stage 1: Core System & Repos
 # =============================================================================
 
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
+    locales \
+    software-properties-common \
     ca-certificates \
     wget \
     curl \
-    unzip \
     gnupg \
     git \
-    software-properties-common \
+    git-lfs \
+    unzip \
+    # Build tools
     autoconf \
     automake \
     autopoint \
@@ -28,26 +31,57 @@ RUN apt-get update && \
     pkg-config \
     gawk \
     ant \
+    ant-optional \
     maven \
-    cmake && \
-    update-ca-certificates && \
-    add-apt-repository universe && \
-    # Add BellSoft repository for Liberica JDK 11
-    mkdir -p /etc/apt/keyrings && \
+    cmake \
+    build-essential \
+    # Python headers
+    python3-dev \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# 1.1 Configure Locale
+RUN locale-gen en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LC_ALL=en_US.UTF-8
+
+# 1.2 Add BellSoft JDK Repo
+RUN mkdir -p /etc/apt/keyrings && \
     wget -q -O - https://download.bell-sw.com/pki/GPG-KEY-bellsoft | \
     gpg --dearmor > /etc/apt/keyrings/bellsoft.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/bellsoft.gpg] https://apt.bell-sw.com/ stable main" \
-    > /etc/apt/sources.list.d/bellsoft.list && \
-    apt-get update && \
-    apt-get install -y bellsoft-java11-full && \
-    apt-get install -y \
-    # Sleuthkit build dependencies
+    > /etc/apt/sources.list.d/bellsoft.list
+
+# =============================================================================
+# Stage 2: Install Libraries via APT (Hybrid Stability Layer)
+# =============================================================================
+
+RUN add-apt-repository universe && apt-get update && apt-get install -y \
+    bellsoft-java11-full \
+    # Build Dependencies
     libssl-dev \
     libcppunit-dev \
     libsqlite3-dev \
-    # Forensic libraries
-    # Runtime libraries
-    # Tools for IPED
+    zlib1g-dev \
+    libfuse-dev \
+    libutf8proc-dev \
+    uuid-dev \
+    byacc \
+    flex \
+    bison \
+    gettext \
+    # Forensic Libs (System versions for stability)
+    libscca-utils \
+    libevtx-utils \
+    libevt-utils \
+    libmsiecf-utils \
+    pff-tools \
+    libpff-dev \
+    libesedb-utils \
+    libvhdi-dev \
+    libvmdk-dev \
+    # Tools
     tesseract-ocr tesseract-ocr-osd tesseract-ocr-por tesseract-ocr-eng tesseract-ocr-deu tesseract-ocr-frk tesseract-ocr-ita \
     imagemagick \
     mplayer \
@@ -57,205 +91,72 @@ RUN apt-get update && \
     libreoffice-gtk2 \
     libparse-win32registry-perl \
     graphviz \
-    rifiuti2 &&\
-    # "Python nation! Rise up!"
-    add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update && \
-    apt-get install -y python3.9 python3.9-dev python3.9-distutils python3-pip python3.9-dev \
+    rifiuti2 \
     swig \
-    # For dlib
+    # Dlib Dependencies
     libx11-dev \
     libopenblas-dev liblapack-dev \
     libavdevice-dev libavfilter-dev libavformat-dev \
     libavcodec-dev libswresample-dev libswscale-dev \
     libavutil-dev \
     libgif-dev libjpeg-dev libopenexr-dev libpng-dev libwebp-dev libavif-dev \
-    libbrotli-dev \ 
-    # For libewf
-    bison \
-    flex \
-    yasm \
-    gettext
-# Set python3.9 as default python3 and python
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1 \
-    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1 
-
-# Run mplayer once to create config dir to avoid issues later
-RUN mplayer
+    libbrotli-dev && \
+    # Setup Mplayer config
+    mplayer && \
+    rm -rf /var/lib/apt/lists/*
 
 # =============================================================================
-# Stage 2: Build and install libbfio
+# Stage 3: Build Source Libraries (Critical for TSK Patch)
 # =============================================================================
 
+# 3.1 Build libbfio (Dependency for libewf)
 RUN git clone https://github.com/libyal/libbfio.git /libbfio
 WORKDIR /libbfio
 RUN ./synclibs.sh && \
     ./autogen.sh && \
-    ./configure --prefix=/usr && \
+    ./configure --prefix=/usr/local && \
     make all install && \
-    ldconfig
+    ldconfig && \
+    cd / && rm -rf /libbfio
 
-# =============================================================================
-# Stage 3: Build and install libvslvm
-# =============================================================================
-
-RUN git clone https://github.com/libyal/libvslvm.git /libvslvm
-WORKDIR /libvslvm
-RUN ./synclibs.sh && \
-    ./autogen.sh && \
-    ./configure --prefix=/usr && \
-    make all install && \
-    ldconfig
-
-# =============================================================================
-# Stage 4: Build and install libvmdk
-# =============================================================================
-
-RUN git clone https://github.com/libyal/libvmdk.git /libvmdk
-WORKDIR /libvmdk
-RUN ./synclibs.sh && \
-    ./autogen.sh && \
-    ./configure --prefix=/usr && \
-    make all install && \
-    ldconfig
-
-# =============================================================================
-# Stage 5: Build and install libvhdi
-# =============================================================================
-
-RUN git clone https://github.com/libyal/libvhdi.git /libvhdi
-WORKDIR /libvhdi
-RUN ./synclibs.sh && \
-    ./autogen.sh && \
-    ./configure --prefix=/usr && \
-    make all install && \
-    ldconfig
-
-# =============================================================================
-# Stage 6: Build and install libewf
-# =============================================================================
-
+# 3.2 Build libewf (Needed for TSK patch to work correctly)
 RUN git clone https://github.com/libyal/libewf.git /libewf
 WORKDIR /libewf
 RUN ./synclibs.sh && \
     ./autogen.sh && \
-    ./configure --prefix=/usr && \
+    ./configure --prefix=/usr/local --enable-wide-character-type && \
     make all install && \
-    ldconfig
+    ldconfig && \
+    cd / && rm -rf /libewf
 
-# =============================================================================
-# Stage 7: Build and install afflib
-# =============================================================================
-
-RUN git clone -b v3.7.20 https://github.com/sshock/AFFLIBv3.git /AFFLIBv3
-WORKDIR /AFFLIBv3
-RUN ./bootstrap.sh && \
-    ./configure --prefix=/usr && \
-    make all install && \
-    ldconfig
-
-# =============================================================================
-# Stage 8: Build and install libagdb
-# =============================================================================
-
+# 3.3 Build libagdb (Matches your working build)
 RUN git clone https://github.com/libyal/libagdb.git /libagdb
 WORKDIR /libagdb
-RUN ./synclibs.sh && \
+RUN git checkout 667a782 && \
+    ./synclibs.sh && \
     ./autogen.sh && \
-    ./configure --prefix=/usr && \
+    ./configure --prefix=/usr/local && \
     make all install && \
-    ldconfig
+    ldconfig && \
+    cd / && rm -rf /libagdb
 
-# =============================================================================
-# Stage 9: Build and install libevtx
-# =============================================================================
-
-RUN git clone https://github.com/libyal/libevtx.git /libevtx
-WORKDIR /libevtx
-RUN ./synclibs.sh && \
-    ./autogen.sh && \
-    ./configure --prefix=/usr && \
-    make all install && \
-    ldconfig
-
-# =============================================================================
-# Stage 10: Build and install libevt
-# =============================================================================
-
-RUN git clone https://github.com/libyal/libevt.git /libevt
-WORKDIR /libevt
-RUN ./synclibs.sh && \
-    ./autogen.sh && \
-    ./configure --prefix=/usr && \
-    make all install && \
-    ldconfig
-
-# =============================================================================
-# Stage 11: Build and install libscca
-# =============================================================================
-
-RUN git clone https://github.com/libyal/libscca.git /libscca
-WORKDIR /libscca
-RUN ./synclibs.sh && \
-    ./autogen.sh && \
-    ./configure --prefix=/usr && \
-    make all install && \
-    ldconfig
-
-# =============================================================================
-# Stage 12: Build and install libesedb
-# =============================================================================
-
-RUN git clone https://github.com/libyal/libesedb.git /libesedb
-WORKDIR /libesedb
-RUN ./synclibs.sh && \
-    ./autogen.sh && \
-    ./configure --prefix=/usr && \
-    make all install && \
-    ldconfig
-
-# =============================================================================
-# Stage 13: Build and install libpff
-# =============================================================================
-
-RUN git clone https://github.com/libyal/libpff.git /libpff
-WORKDIR /libpff
-RUN ./synclibs.sh && \
-    ./autogen.sh && \
-    ./configure --prefix=/usr && \
-    make all install && \
-    ldconfig
-
-# =============================================================================
-# Stage 14: Build and install libmsiecf
-# =============================================================================
-
-RUN git clone https://github.com/libyal/libmsiecf.git /libmsiecf
-WORKDIR /libmsiecf
-RUN ./synclibs.sh && \
-    ./autogen.sh && \
-    ./configure --prefix=/usr && \
-    make all install && \
-    ldconfig
-
-# =============================================================================
-# Stage 15: Build and install libjxl (JPEG XL)
-# =============================================================================
-
+# 3.4 Build libjxl (JPEG XL)
 RUN git clone https://github.com/libjxl/libjxl.git --recursive --shallow-submodules /libjxl
 WORKDIR /libjxl
 RUN mkdir build && cd build && \
     cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF .. && \
     cmake --build . && \
     cmake --install . && \
-    ldconfig
+    ldconfig && \
+    cd / && rm -rf /libjxl
 
 # =============================================================================
-# Stage 16: Build and install Sleuthkit (IPED patched version)
+# Stage 4: Build Patched Sleuthkit & Dlib
 # =============================================================================
 
+# 4.1 Sleuthkit with IPED Patch
+# We expect ewf.cpp.patch to be in the same folder as Dockerfile
 RUN git clone -b 4.12.0_iped_patch https://github.com/sepinf-inc/sleuthkit.git /sleuthkit
-
 COPY ewf.cpp.patch /sleuthkit
 WORKDIR /sleuthkit
 RUN patch tsk/img/ewf.cpp < ewf.cpp.patch
@@ -265,33 +166,26 @@ RUN ./bootstrap && \
     make install && \
     mkdir -p /usr/share/java && \
     cp bindings/java/dist/sleuthkit-4.12.0.jar /usr/share/java/sleuthkit-4.12.0.jar && \
-    ldconfig
+    ldconfig && \
+    cd / && rm -rf /sleuthkit
 
-# =============================================================================
-# Stage 17: Install Python packages
-# =============================================================================
-
+# 4.2 Python Environment
 RUN pip3 install --upgrade pip
-
 RUN pip3 install \
     packaging \
     faster-whisper \
     gputil \
     numpy==1.26.4 \
-    jep==4.2.0 \
+    jep==4.0.3 \
+    face_recognition \
     pillow \
     tensorflow==2.10 \
-    face_recognition \
     opencv-python==4.11.0.86 \
     transformers \
-    torch>=2.1.0 \
-    huggingsound \
+    torch \
     bs4
 
-# =============================================================================
-# Stage 18: Build dlib with CUDA support
-# =============================================================================
-
+# 4.3 Build Dlib with CUDA
 RUN pip3 uninstall dlib -y && \
     mkdir -p /opt/SP/packages && cd /opt/SP/packages && \
     git clone https://github.com/davisking/dlib.git && cd dlib && \
@@ -300,59 +194,50 @@ RUN pip3 uninstall dlib -y && \
     cmake -D DLIB_USE_CUDA=1 -D USE_AVX_INSTRUCTIONS=1 ../ && \
     cmake --build . --config Release -- -j$(nproc) && \
     cd ../ && python3 setup.py install && \
-    cd /opt/SP/packages && rm -rf dlib
+    cd / && rm -rf /opt/SP/packages/dlib
 
-# =============================================================================
-# Stage 19: Preload models
-# =============================================================================
-# If you need custom models replace ['large-v3'] with your own comma separated list of models from huggingface
-# e.g. ['small', 'medium', 'large-v2'] or ['Flurin17/whisper-large-v3-turbo-swiss-german', 'large-v3']
+# Preload Whisper models
 RUN python3 -c "from faster_whisper import WhisperModel; [WhisperModel(model, compute_type='int8') for model in ['large-v3']]"
 
 # =============================================================================
-# Stage 20: Download and install IPED release
+# Stage 5: Build IPED (WITH TESTS)
 # =============================================================================
 
 WORKDIR /opt
-RUN curl -L https://github.com/sepinf-inc/IPED/releases/download/${IPED_VERSION}/IPED-${IPED_VERSION}_and_java_plugins.zip --output /tmp/iped.zip && \
-    unzip /tmp/iped.zip && \
-    ls | grep "iped-" | xargs -I {} sh -c 'ln -s "{}" iped' && \
-    rm /tmp/iped.zip
+
+# Initialize Git LFS
+RUN git lfs install
+
+# Clone IPED
+RUN git clone https://github.com/sepinf-inc/IPED.git \
+    && cd IPED \
+    && git checkout ${IPED_VERSION} \
+    && git lfs pull
+
+WORKDIR /opt/IPED
+
+# Build with Maven - Tests ENABLED
+RUN mvn clean install
+
+RUN mv target/release/iped-${IPED_VERSION} /opt/iped
+RUN mkdir -p /opt/plugins && mv target/release/plugins/* /opt/plugins/
 
 # =============================================================================
-# Stage 21: Download and install JPEG2000 plugin
+# Stage 6: Final Setup
 # =============================================================================
 
+# Install JPEG2000 plugin
 RUN curl -L https://mvnrepository.com/artifact/com.github.jai-imageio/jai-imageio-jpeg2000/1.4.0 -o /tmp/jai-imageio-jpeg2000-1.4.0.jar && \
     cp /tmp/jai-imageio-jpeg2000-1.4.0.jar /opt/plugins/ && \
     rm /tmp/jai-imageio-jpeg2000-1.4.0.jar
 
-# =============================================================================
-# Stage 22: Apply library and JAR patches
-# =============================================================================
-
-# I dont fully understand why the following is needed!! https://github.com/iped-docker/iped/blob/d9f3f36e09bb20f1db1c3bae6b0e7b09fbd65ce5/Dockerfile.processor#L87C1-L93C102
-## Removing IPED's TSK-JAVA-JNI lib to avoid conflict of libs
+# Remove conflicting TSK JAR
 RUN rm -v /opt/iped/lib/sleuthkit-4.12.0.p1.jar
-## TEMP PATCH JEP-4.2.0 to avoid conflict of libs
-RUN cp /usr/local/lib/python3.9/dist-packages/jep/jep-4.2.0.jar /opt/iped/lib/jep-4.0.3.jar
 
-# =============================================================================
-# Stage 23: Cleanup
-# =============================================================================
-
-RUN apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    rm -rf /libbfio /libagdb /sleuthkit
-
-RUN ls -la /opt/iped/
+RUN ls -la /opt/plugins
 
 WORKDIR /opt/iped
 CMD ["/bin/bash"]
 
-# =============================================================================
-
 LABEL org.opencontainers.image.authors="AlexInABox"
 LABEL org.opencontainers.image.licenses="AGPL-3.0"
-LABEL org.opencontainers.image.url="https://github.com/AlexInABox/IPED-cuda"
-LABEL org.opencontainers.image.source="https://github.com/AlexInABox/IPED-cuda"
