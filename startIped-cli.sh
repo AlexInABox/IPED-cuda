@@ -245,7 +245,14 @@ cmd_process() {
         fi
         
         local mount_idx=${dir_to_mount_index[$evidence_dir]}
-        local mount_path="/evidences_$mount_idx"
+        
+        # Mimic the target structure: /workspace/Sicherungen/<case_name>
+        # If there are multiple evidence dirs, append the index to prevent collisions
+        if [[ $mount_idx -eq 0 ]]; then
+            local mount_path="/workspace/Sicherungen/$output_name"
+        else
+            local mount_path="/workspace/Sicherungen/${output_name}_${mount_idx}"
+        fi
         
         # Add -d flag for this evidence with unique mount path
         evidence_flags="$evidence_flags\\n      -d \"$mount_path/$evidence_name\""
@@ -255,17 +262,16 @@ cmd_process() {
     local dir_index=0
     for dir in "${!dir_to_mount_index[@]}"; do
         local mount_idx=${dir_to_mount_index[$dir]}
-        local mount_path="/evidences_$mount_idx"
+        if [[ $mount_idx -eq 0 ]]; then
+            local mount_path="/workspace/Sicherungen/$output_name"
+        else
+            local mount_path="/workspace/Sicherungen/${output_name}_${mount_idx}"
+        fi
         volume_mounts="$volume_mounts\\n      - \"$dir:$mount_path:ro\""
     done
     
     # Remove leading newline from evidence_flags
     evidence_flags="${evidence_flags:2}"
-    
-    # Build volume mounts for unique evidence directories
-    for dir in "${unique_dirs[@]}"; do
-        volume_mounts="$volume_mounts\\n      - \\\"$dir:/evidences:ro\\\""
-    done
     
     sed \
         -e "s|__EVIDENCE_PATHS__|$evidence_flags|g" \

@@ -10,9 +10,9 @@ services:
     command: >
       java -jar iped.jar -Xmx30G --portable
       __EVIDENCE_PATHS__
-      -o "/results/__EVIDENCE_NAME_NOEXT__"
+      -o "/workspace/Aufbereitungen/__EVIDENCE_NAME_NOEXT__"
     volumes:
-      - "./results:/results"
+      - "./results/__EVIDENCE_NAME_NOEXT__:/workspace/Aufbereitungen/__EVIDENCE_NAME_NOEXT__"
       - "./ipedtmp:/mnt/ipedtmp"
       __EVIDENCE_PATHS_VOLUMES__
       - "__HASHES_PATH__:/mnt/hashesdb:ro"
