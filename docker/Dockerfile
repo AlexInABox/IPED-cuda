@@ -1,6 +1,6 @@
 FROM docker.io/nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
-ENV IPED_VERSION=4.3.0
+ENV IPED_VERSION=4.3.1
 ENV DEBIAN_FRONTEND=noninteractive
 ENV SAL_USE_VCLPLUGIN=gtk
 ENV JAVA_HOME=/usr/lib/jvm/bellsoft-java11-full-amd64/

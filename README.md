@@ -5,7 +5,7 @@
 
 Podman/Docker setup for running IPED with GPU acceleration. Includes audio transcription (Whisper), face recognition (dlib), OCR, and image processing—all optimized for NVIDIA CUDA.
 
-### **Current Versions**: IPED 4.3.0, CUDA 12.4
+### **Current Versions**: IPED 4.3.1, CUDA 12.4
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ sudo pacman -S podman podman-compose
 ### 1. Build
 
 ```bash
-podman build docker/ -t iped-cuda:4.3.0
+podman build docker/ -t iped-cuda:4.3.1
 ```
 
 > [!WARNING]  
