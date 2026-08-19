@@ -13,8 +13,18 @@ NERImpl = org.apache.tika.parser.ner.corenlp.CoreNLPNERecogniser
 # Map between language and NER model. Syntax:
 # langModel_X = language : model_into_classpath
 # Use "default" for languages without model or languages not recognized.
+# All models below are preinstalled in /opt/plugins/ inside the image
+# (stanford-{english,german,spanish,chinese}-corenlp-2017-06-09-models.jar).
+# Language codes follow the optimaize langdetect built-in profiles
+# (de, en, es, zh-CN, zh-TW, ...). German is enabled by default.
+# Uncomment the language models you want to use.
+# NOTE: entries are loaded sequentially from langModel_0 upward, stopping at the
+# first missing index - uncomment them in order (e.g. es before zh-CN).
 langModel_0 = default : edu/stanford/nlp/models/ner/english.all.3class.caseless.distsim.crf.ser.gz
-#langModel_1 = es : edu/stanford/nlp/models/ner/spanish.ancora.distsim.s512.crf.ser.gz
+langModel_1 = de : edu/stanford/nlp/models/ner/german.conll.hgc_175m_600.crf.ser.gz
+# langModel_2 = es : edu/stanford/nlp/models/ner/spanish.ancora.distsim.s512.crf.ser.gz
+# langModel_3 = zh-CN : edu/stanford/nlp/models/ner/chinese.misc.distsim.crf.ser.gz
+# langModel_4 = zh-TW : edu/stanford/nlp/models/ner/chinese.misc.distsim.crf.ser.gz
 
 # Minimum detected language score to use its model.
 # If the score is smaller than configured, the "default" language model is used.

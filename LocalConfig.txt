@@ -32,9 +32,11 @@ hashesDB = /mnt/hashesdb/iped-hashes.db
 # It is distributed a Windows only version with some optimization patches.
 # It is recommended to apply the patch (in source folder) before building sleuthkit on Linux.
 # !! INTERNAL DOCKER PATH !!
-tskJarPath = /usr/share/java/sleuthkit-4.12.0.jar
+tskJarPath = /usr/share/java/sleuthkit-4.15.0.jar
 
 # Plugin folder for optional libs not embedded because of license restrictions.
 # They will be dynamically loaded at runtime.
+# NOTE: must be RELATIVE to the IPED app root (/opt/iped). An absolute path
+# gets joined with the app root (e.g. /opt/plugins/ -> /opt/iped/opt/plugins/).
 # !! INTERNAL DOCKER PATH !!
-pluginFolder = /opt/plugins/
+pluginFolder = ../plugins/

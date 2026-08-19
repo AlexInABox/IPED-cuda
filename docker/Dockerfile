@@ -64,7 +64,7 @@ RUN add-apt-repository universe && apt-get update && apt-get install -y \
     libcppunit-dev \
     libsqlite3-dev \
     zlib1g-dev \
-    libfuse-dev \
+    libfuse3-dev \
     libutf8proc-dev \
     uuid-dev \
     byacc \
@@ -156,7 +156,7 @@ RUN mkdir build && cd build && \
 
 # 4.1 Sleuthkit with IPED Patch
 # We expect ewf.cpp.patch to be in the same folder as Dockerfile
-RUN git clone -b 4.12.0_iped_patch https://github.com/sepinf-inc/sleuthkit.git /sleuthkit
+RUN git clone -b 4.15.0_iped_patch https://github.com/sepinf-inc/sleuthkit.git /sleuthkit
 COPY ewf.cpp.patch /sleuthkit
 WORKDIR /sleuthkit
 RUN patch tsk/img/ewf.cpp < ewf.cpp.patch
@@ -165,7 +165,7 @@ RUN ./bootstrap && \
     make && \
     make install && \
     mkdir -p /usr/share/java && \
-    cp bindings/java/dist/sleuthkit-4.12.0.jar /usr/share/java/sleuthkit-4.12.0.jar && \
+    cp bindings/java/dist/sleuthkit-4.15.0.jar /usr/share/java/sleuthkit-4.15.0.jar && \
     ldconfig && \
     cd / && rm -rf /sleuthkit
 
@@ -173,6 +173,7 @@ RUN ./bootstrap && \
 RUN pip3 install --upgrade pip
 RUN pip3 install \
     packaging \
+    "setuptools<81" \
     faster-whisper \
     gputil \
     numpy==1.26.4 \
@@ -226,13 +227,34 @@ RUN mkdir -p /opt/plugins && mv target/release/plugins/* /opt/plugins/
 # Stage 6: Final Setup
 # =============================================================================
 
-# Install JPEG2000 plugin
-RUN curl -L https://mvnrepository.com/artifact/com.github.jai-imageio/jai-imageio-jpeg2000/1.4.0 -o /tmp/jai-imageio-jpeg2000-1.4.0.jar && \
+# Install JPEG2000 plugin (from Maven Central; mvnrepository.com serves an HTML page)
+RUN curl -L https://repo1.maven.org/maven2/com/github/jai-imageio/jai-imageio-jpeg2000/1.4.0/jai-imageio-jpeg2000-1.4.0.jar -o /tmp/jai-imageio-jpeg2000-1.4.0.jar && \
     cp /tmp/jai-imageio-jpeg2000-1.4.0.jar /opt/plugins/ && \
     rm /tmp/jai-imageio-jpeg2000-1.4.0.jar
 
+# Install Stanford CoreNLP models for all languages with NER support (3.8.0).
+# Each jar provides edu/stanford/nlp/models/ner/<lang>.*.crf.ser.gz used by
+# NamedEntityTask. Languages can be selected in NamedEntityRecognitionConfig.txt.
+# Note: arabic/french/english-kbp 3.8.0 jars contain no NER models (only parser/segmenter).
+RUN for lang in english german spanish chinese; do \
+      echo "Downloading stanford-$lang CoreNLP models..."; \
+      curl -L https://nlp.stanford.edu/software/stanford-$lang-corenlp-2017-06-09-models.jar \
+        -o /tmp/stanford-$lang-corenlp-2017-06-09-models.jar && \
+      cp /tmp/stanford-$lang-corenlp-2017-06-09-models.jar /opt/plugins/ && \
+      rm /tmp/stanford-$lang-corenlp-2017-06-09-models.jar; \
+    done
+
 # Remove conflicting TSK JAR
 RUN rm -v /opt/iped/lib/sleuthkit-4.12.0.p1.jar
+
+# Replace sqlite-jdbc with version compatible with sleuthkit 4.15.0
+# (older 3.41.2.2 lacks SQLiteConfig.setReadUncommitted used by sleuthkit 4.15.0)
+# NOTE: keep the original filename sqlite-jdbc-3.41.2.2.jar, because the
+# Class-Path in iped.jar's manifest references it by that exact name.
+RUN curl -L https://repo1.maven.org/maven2/org/xerial/sqlite-jdbc/3.42.0.1/sqlite-jdbc-3.42.0.1.jar -o /tmp/sqlite-jdbc-3.42.0.1.jar && \
+    rm -v /opt/iped/lib/sqlite-jdbc-3.41.2.2.jar && \
+    cp /tmp/sqlite-jdbc-3.42.0.1.jar /opt/iped/lib/sqlite-jdbc-3.41.2.2.jar && \
+    rm /tmp/sqlite-jdbc-3.42.0.1.jar
 
 RUN ls -la /opt/plugins
 
